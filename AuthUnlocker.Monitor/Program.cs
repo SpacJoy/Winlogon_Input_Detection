@@ -14,12 +14,12 @@ namespace AuthUnlocker.Monitor
         private static LowLevelMouseProc? _procMouse;
         private static long _lastActivityTick = 0;
         private const long IdleThresholdTicks = 200 * 10000; // 200ms in ticks
-        private static string _logFilePath = @"C:\Windows\Temp\AuthUnlocker_Monitor.log";
+        private static string _logFilePath = @"C:\AuthUnlocker_Monitor.log";
 
         static void Main(string[] args)
         {
             // Initial emergency log to verify execution
-            try { File.WriteAllText(@"C:\Windows\Temp\AuthUnlocker_Monitor_Init.log", "Entry point hit at " + DateTime.Now.ToString()); } catch { }
+            try { File.WriteAllText(@"C:\AuthUnlocker_Monitor_Init.log", "Entry point hit at " + DateTime.Now.ToString()); } catch { }
 
             Log("==========================================");
             Log($"Monitor process started. PID: {Process.GetCurrentProcess().Id}");

@@ -217,7 +217,7 @@ namespace AuthUnlocker.Service
                 string? workingDir = Path.GetDirectoryName(appPath);
 
                 if (!NativeMethods.CreateProcessAsUser(hUserTokenDup, null, appPath, IntPtr.Zero, IntPtr.Zero, false, 
-                    NativeMethods.NORMAL_PRIORITY_CLASS | NativeMethods.CREATE_NEW_CONSOLE, 
+                    NativeMethods.NORMAL_PRIORITY_CLASS, 
                     IntPtr.Zero, workingDir, ref si, out pi))
                 {
                     Log($"CreateProcessAsUser failed. Error: {Marshal.GetLastWin32Error()}");
@@ -388,6 +388,9 @@ namespace AuthUnlocker.Service
 
         [DllImport("kernel32.dll", SetLastError = true)]
         public static extern bool CloseHandle(IntPtr hObject);
+
+        [DllImport("wtsapi32.dll", SetLastError = true)]
+        public static extern bool WTSQueryUserToken(int sessionId, out IntPtr Token);
 
         [StructLayout(LayoutKind.Sequential)]
         public struct LUID
