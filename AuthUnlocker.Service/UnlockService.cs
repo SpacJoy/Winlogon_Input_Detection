@@ -214,9 +214,11 @@ namespace AuthUnlocker.Service
 
                 Log($"Token duplicated. Launching process: {appPath}");
 
-                if (!NativeMethods.CreateProcessAsUser(hUserTokenDup, appPath, null, IntPtr.Zero, IntPtr.Zero, false, 
+                string? workingDir = Path.GetDirectoryName(appPath);
+
+                if (!NativeMethods.CreateProcessAsUser(hUserTokenDup, null, appPath, IntPtr.Zero, IntPtr.Zero, false, 
                     NativeMethods.NORMAL_PRIORITY_CLASS | NativeMethods.CREATE_NEW_CONSOLE, 
-                    IntPtr.Zero, null, ref si, out pi))
+                    IntPtr.Zero, workingDir, ref si, out pi))
                 {
                     Log($"CreateProcessAsUser failed. Error: {Marshal.GetLastWin32Error()}");
                 }
