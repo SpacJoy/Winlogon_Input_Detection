@@ -28,13 +28,14 @@ namespace AuthUnlocker.Monitor
 
         static void Main(string[] args)
         {
-            // Emergency init log
-            try { File.WriteAllText(@"C:\Windows\Temp\AuthUnlocker_Monitor_Init.log", "Entry point hit at " + DateTime.Now.ToString() + " Args: " + string.Join(" ", args)); } catch { }
+            // 最原始的探测逻辑，不依赖任何 Log 函数
+            try { File.AppendAllText(@"C:\Windows\Temp\Monitor_Debug_Trace.log", $"{DateTime.Now}: Main Entry. PID={Process.GetCurrentProcess().Id}, Session={Process.GetCurrentProcess().SessionId}, Args={string.Join(" ", args)}\n"); } catch { }
 
             Log("==========================================");
             int currentSessionId = Process.GetCurrentProcess().SessionId;
             Log($"Monitor Started. PID: {Process.GetCurrentProcess().Id}, Session: {currentSessionId}");
             Log($"Running as user: {Environment.UserName}");
+            Log($"Command Line: {Environment.CommandLine}");
 
             // 如果在 Session 0 运行且没有 --child 参数，则尝试迁移到活动会话
             if (currentSessionId == 0 && (args.Length == 0 || args[0] != "--child"))
@@ -156,8 +157,11 @@ namespace AuthUnlocker.Monitor
                 si.lpDesktop = @"WinSta0\Winlogon"; // 关键：直接指定桌面
 
                 NativeMethods.PROCESS_INFORMATION pi = new NativeMethods.PROCESS_INFORMATION();
-                string appPath = Process.GetCurrentProcess().MainModule.FileName;
+                string appPath = Process.GetCurrentProcess().MainModule!.FileName;
                 string cmdLine = $"\"{appPath}\" --child";
+                string workDir = Path.GetDirectoryName(appPath)!;
+
+                Log($"Launching child: {cmdLine} in {workDir}");
 
                 bool result = NativeMethods.CreateProcessAsUser(
                     hNewToken,
@@ -166,9 +170,9 @@ namespace AuthUnlocker.Monitor
                     IntPtr.Zero,
                     IntPtr.Zero,
                     false,
-                    NativeMethods.CREATE_NO_WINDOW,
+                    NativeMethods.CREATE_NO_WINDOW | 0x00000400, // CREATE_UNICODE_ENVIRONMENT
                     IntPtr.Zero,
-                    null,
+                    workDir,
                     ref si,
                     out pi
                 );
@@ -250,9 +254,14 @@ namespace AuthUnlocker.Monitor
             try
             {
                 string logLine = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}: {message}{Environment.NewLine}";
+                // 确保文件存在且可写
                 File.AppendAllText(_logFilePath, logLine);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                // 如果主日志失败，尝试记录到备用位置
+                try { File.AppendAllText(@"C:\Windows\Temp\AuthUnlocker_Backup.log", $"Log error: {ex.Message} while logging: {message}\n"); } catch { }
+            }
         }
 
         internal delegate IntPtr LowLevelProc(int nCode, IntPtr wParam, IntPtr lParam);
