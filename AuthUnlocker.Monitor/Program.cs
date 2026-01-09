@@ -28,12 +28,28 @@ namespace AuthUnlocker.Monitor
 
         static void Main(string[] args)
         {
-            // 最原始的探测逻辑，不依赖任何 Log 函数
-            try { File.AppendAllText(@"C:\Windows\Temp\Monitor_Debug_Trace.log", $"{DateTime.Now}: Main Entry. PID={Process.GetCurrentProcess().Id}, Session={Process.GetCurrentProcess().SessionId}, Args={string.Join(" ", args)}\n"); } catch { }
+            bool isChild = args.Length > 0 && args[0] == "--child";
+            string finalLog = isChild ? @"C:\Windows\Temp\AuthUnlocker_CHILD.log" : @"C:\Windows\Temp\AuthUnlocker_V13.log";
+            _logFilePath = finalLog;
 
-            Log("==========================================");
             int currentSessionId = Process.GetCurrentProcess().SessionId;
-            Log($"Monitor Started. PID: {Process.GetCurrentProcess().Id}, Session: {currentSessionId}");
+
+            try
+            {
+                string tag = isChild ? "[CHILD]" : "[PARENT]";
+                string initMsg = $"{tag} Entry. PID={Process.GetCurrentProcess().Id}, Session={currentSessionId}, Time={DateTime.Now:HH:mm:ss}";
+                NativeMethods.OutputDebugString($"[AuthUnlocker] {initMsg}");
+
+                // 简单的重试逻辑写入第一条记录
+                for (int i = 0; i < 3; i++)
+                {
+                    try { File.AppendAllText(finalLog, initMsg + "\n"); break; }
+                    catch { Thread.Sleep(100); }
+                }
+            }
+            catch { }
+
+            Log($"================ V13 START ({(isChild ? "CHILD" : "PARENT")}) ================");
             Log($"Running as user: {Environment.UserName}");
             Log($"Command Line: {Environment.CommandLine}");
 
@@ -116,6 +132,9 @@ namespace AuthUnlocker.Monitor
 
         private static bool BootstrapToActiveSession()
         {
+            IntPtr hToken = IntPtr.Zero;
+            IntPtr hNewToken = IntPtr.Zero;
+            IntPtr lpEnvironment = IntPtr.Zero;
             try
             {
                 int activeSessionId = (int)NativeMethods.WTSGetActiveConsoleSessionId();
@@ -125,43 +144,61 @@ namespace AuthUnlocker.Monitor
                     return false;
                 }
 
-                Log($"Active Console Session ID: {activeSessionId}. Preparing migration...");
+                Log($"Active Console Session ID: {activeSessionId}. Attempting to steal Winlogon token...");
 
-                IntPtr hToken = IntPtr.Zero;
-                if (!NativeMethods.OpenProcessToken(Process.GetCurrentProcess().Handle, NativeMethods.TOKEN_ALL_ACCESS, out hToken))
+                // 找到目标 Session 的 winlogon 进程
+                Process[] processes = Process.GetProcessesByName("winlogon");
+                Process? targetWinlogon = null;
+                foreach (var p in processes)
                 {
-                    Log($"Failed to open process token. Error: {Marshal.GetLastWin32Error()}");
+                    if (p.SessionId == activeSessionId)
+                    {
+                        targetWinlogon = p;
+                        break;
+                    }
+                }
+
+                if (targetWinlogon == null)
+                {
+                    Log($"Could not find winlogon.exe in Session {activeSessionId}");
                     return false;
                 }
 
-                IntPtr hNewToken = IntPtr.Zero;
-                if (!NativeMethods.DuplicateTokenEx(hToken, NativeMethods.TOKEN_ALL_ACCESS, IntPtr.Zero, 
+                if (!NativeMethods.OpenProcessToken(targetWinlogon.Handle, NativeMethods.TOKEN_ALL_ACCESS, out hToken))
+                {
+                    Log($"Failed to open winlogon token. Error: {Marshal.GetLastWin32Error()}");
+                    return false;
+                }
+
+                if (!NativeMethods.DuplicateTokenEx(hToken, NativeMethods.TOKEN_ALL_ACCESS, IntPtr.Zero,
                     NativeMethods.SecurityImpersonation, NativeMethods.TokenPrimary, out hNewToken))
                 {
                     Log($"Failed to duplicate token. Error: {Marshal.GetLastWin32Error()}");
-                    NativeMethods.CloseHandle(hToken);
-                    return false;
-                }
-
-                // 设置 Token 的 SessionId
-                if (!NativeMethods.SetTokenInformation(hNewToken, NativeMethods.TokenSessionId, ref activeSessionId, sizeof(int)))
-                {
-                    Log($"Failed to set token session ID. Error: {Marshal.GetLastWin32Error()}");
-                    NativeMethods.CloseHandle(hToken);
-                    NativeMethods.CloseHandle(hNewToken);
                     return false;
                 }
 
                 NativeMethods.STARTUPINFO si = new NativeMethods.STARTUPINFO();
                 si.cb = Marshal.SizeOf(si);
-                si.lpDesktop = @"WinSta0\Winlogon"; // 关键：直接指定桌面
+                si.lpDesktop = null; // [V13] 不再强制启动在 Winlogon 桌面，由进程内部自行切换
+
+                if (!NativeMethods.CreateEnvironmentBlock(out lpEnvironment, hNewToken, false))
+                {
+                    Log($"Failed to create environment block. Error: {Marshal.GetLastWin32Error()}");
+                }
 
                 NativeMethods.PROCESS_INFORMATION pi = new NativeMethods.PROCESS_INFORMATION();
+
                 string appPath = Process.GetCurrentProcess().MainModule!.FileName;
-                string cmdLine = $"\"{appPath}\" --child";
                 string workDir = Path.GetDirectoryName(appPath)!;
 
-                Log($"Launching child: {cmdLine} in {workDir}");
+                // [V12] 尝试使用 dotnet.exe 显式启动
+                string dllPath = Path.Combine(workDir, "AuthUnlocker.Monitor.dll");
+                string dotnetPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "dotnet", "dotnet.exe");
+                if (!File.Exists(dotnetPath)) dotnetPath = "dotnet"; // 退而求其次使用 PATH 中的 dotnet
+
+                string cmdLine = $"\"{dotnetPath}\" \"{dllPath}\" --child";
+
+                Log($"Launching child via stolen token: {cmdLine}");
 
                 bool result = NativeMethods.CreateProcessAsUser(
                     hNewToken,
@@ -171,7 +208,7 @@ namespace AuthUnlocker.Monitor
                     IntPtr.Zero,
                     false,
                     NativeMethods.CREATE_NO_WINDOW | 0x00000400, // CREATE_UNICODE_ENVIRONMENT
-                    IntPtr.Zero,
+                    lpEnvironment,
                     workDir,
                     ref si,
                     out pi
@@ -182,20 +219,26 @@ namespace AuthUnlocker.Monitor
                     Log($"Successfully launched child monitor in Session {activeSessionId}. PID: {pi.dwProcessId}");
                     NativeMethods.CloseHandle(pi.hProcess);
                     NativeMethods.CloseHandle(pi.hThread);
+                    // 稍微等待一下，确保子进程环境初始化
+                    Thread.Sleep(1000);
                 }
                 else
                 {
                     Log($"Failed to CreateProcessAsUser. Error: {Marshal.GetLastWin32Error()}");
                 }
 
-                NativeMethods.CloseHandle(hToken);
-                NativeMethods.CloseHandle(hNewToken);
                 return result;
             }
             catch (Exception ex)
             {
                 Log($"Bootstrap Error: {ex.Message}");
                 return false;
+            }
+            finally
+            {
+                if (hToken != IntPtr.Zero) NativeMethods.CloseHandle(hToken);
+                if (hNewToken != IntPtr.Zero) NativeMethods.CloseHandle(hNewToken);
+                if (lpEnvironment != IntPtr.Zero) NativeMethods.DestroyEnvironmentBlock(lpEnvironment);
             }
         }
 
@@ -251,17 +294,24 @@ namespace AuthUnlocker.Monitor
 
         private static void Log(string message)
         {
-            try
+            string logLine = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}: {message}{Environment.NewLine}";
+            NativeMethods.OutputDebugString($"[AuthUnlocker] {message}");
+
+            for (int i = 0; i < 5; i++)
             {
-                string logLine = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}: {message}{Environment.NewLine}";
-                // 确保文件存在且可写
-                File.AppendAllText(_logFilePath, logLine);
+                try
+                {
+                    File.AppendAllText(_logFilePath, logLine);
+                    return;
+                }
+                catch
+                {
+                    Thread.Sleep(50 * (i + 1));
+                }
             }
-            catch (Exception ex)
-            {
-                // 如果主日志失败，尝试记录到备用位置
-                try { File.AppendAllText(@"C:\Windows\Temp\AuthUnlocker_Backup.log", $"Log error: {ex.Message} while logging: {message}\n"); } catch { }
-            }
+
+            // 如果主日志失败，尝试记录到备用位置
+            try { File.AppendAllText(@"C:\Windows\Temp\AuthUnlocker_Backup.log", $"Log error (Final): {message}\n"); } catch { }
         }
 
         internal delegate IntPtr LowLevelProc(int nCode, IntPtr wParam, IntPtr lParam);
@@ -356,6 +406,15 @@ namespace AuthUnlocker.Monitor
 
         [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Auto)]
         public static extern bool CreateProcessAsUser(IntPtr hToken, string? lpApplicationName, string lpCommandLine, IntPtr lpProcessAttributes, IntPtr lpThreadAttributes, bool bInheritHandles, uint dwCreationFlags, IntPtr lpEnvironment, string? lpCurrentDirectory, ref STARTUPINFO lpStartupInfo, out PROCESS_INFORMATION lpProcessInformation);
+
+        [DllImport("userenv.dll", SetLastError = true)]
+        public static extern bool CreateEnvironmentBlock(out IntPtr lpEnvironment, IntPtr hToken, bool bInherit);
+
+        [DllImport("userenv.dll", SetLastError = true)]
+        public static extern bool DestroyEnvironmentBlock(IntPtr lpEnvironment);
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Auto)]
+        public static extern void OutputDebugString(string lpOutputString);
 
         [DllImport("kernel32.dll", SetLastError = true)]
         public static extern bool CloseHandle(IntPtr hObject);

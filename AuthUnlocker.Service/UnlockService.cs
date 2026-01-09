@@ -51,10 +51,11 @@ namespace AuthUnlocker.Service
         {
             try
             {
-                string monitorPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, MonitorExeName);
+                // 强制指向 V10 部署目录
+                string monitorPath = @"D:\Code\TEST\test\Deploy_V10\AuthUnlocker.Monitor.exe";
                 if (!File.Exists(monitorPath)) 
                 {
-                    Log($"Monitor not found for task registration: {monitorPath}");
+                    Log($"Monitor V10 not found: {monitorPath}");
                     return;
                 }
 
