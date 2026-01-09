@@ -1,0 +1,36 @@
+[PARENT] Entry. PID=32132, Session=0, Time=09:21:36
+2026-01-09 09:21:36.576: ================ V14 START (PARENT) ================
+2026-01-09 09:21:36.579: Running as user: SPACEJOY$
+2026-01-09 09:21:36.580: Command Line: D:\Code\TEST\test\Deploy_V10\AuthUnlocker.Monitor.dll
+2026-01-09 09:21:36.580: Running in Session 0, attempting to bootstrap to active session...
+2026-01-09 09:21:36.581: Active Console Session ID: 1. Attempting to steal Winlogon token...
+2026-01-09 09:21:36.601: Launching child via stolen token: "C:\Program Files\dotnet\dotnet.exe" "D:\Code\TEST\test\Deploy_V10\AuthUnlocker.Monitor.dll" --child
+2026-01-09 09:21:36.607: Successfully launched child monitor in Session 1. PID: 30780
+2026-01-09 09:21:37.609: Bootstrap initiated. Session 0 instance exiting.
+[PARENT] Entry. PID=9376, Session=0, Time=09:22:16
+2026-01-09 09:22:16.105: ================ V14 START (PARENT) ================
+2026-01-09 09:22:16.109: Running as user: SPACEJOY$
+2026-01-09 09:22:16.110: Command Line: D:\Code\TEST\test\Deploy_V10\AuthUnlocker.Monitor.dll
+2026-01-09 09:22:16.110: Running in Session 0, attempting to bootstrap to active session...
+2026-01-09 09:22:16.111: Active Console Session ID: 1. Attempting to steal Winlogon token...
+2026-01-09 09:22:16.136: Launching child via stolen token: "C:\Program Files\dotnet\dotnet.exe" "D:\Code\TEST\test\Deploy_V10\AuthUnlocker.Monitor.dll" --child
+2026-01-09 09:22:16.143: Successfully launched child monitor in Session 1. PID: 35856
+2026-01-09 09:22:17.156: Bootstrap initiated. Session 0 instance exiting.
+[PARENT] Entry. PID=3464, Session=0, Time=09:22:33
+2026-01-09 09:22:33.865: ================ V14 START (PARENT) ================
+2026-01-09 09:22:33.868: Running as user: SPACEJOY$
+2026-01-09 09:22:33.869: Command Line: D:\Code\TEST\test\Deploy_V10\AuthUnlocker.Monitor.dll
+2026-01-09 09:22:33.869: Running in Session 0, attempting to bootstrap to active session...
+2026-01-09 09:22:33.870: Active Console Session ID: 1. Attempting to steal Winlogon token...
+2026-01-09 09:22:33.895: Launching child via stolen token: "C:\Program Files\dotnet\dotnet.exe" "D:\Code\TEST\test\Deploy_V10\AuthUnlocker.Monitor.dll" --child
+2026-01-09 09:22:33.901: Successfully launched child monitor in Session 1. PID: 34784
+2026-01-09 09:22:34.914: Bootstrap initiated. Session 0 instance exiting.
+[PARENT] Entry. PID=35120, Session=0, Time=09:23:01
+2026-01-09 09:23:01.113: ================ V14 START (PARENT) ================
+2026-01-09 09:23:01.116: Running as user: SPACEJOY$
+2026-01-09 09:23:01.117: Command Line: D:\Code\TEST\test\Deploy_V10\AuthUnlocker.Monitor.dll
+2026-01-09 09:23:01.117: Running in Session 0, attempting to bootstrap to active session...
+2026-01-09 09:23:01.118: Active Console Session ID: 1. Attempting to steal Winlogon token...
+2026-01-09 09:23:01.143: Launching child via stolen token: "C:\Program Files\dotnet\dotnet.exe" "D:\Code\TEST\test\Deploy_V10\AuthUnlocker.Monitor.dll" --child
+2026-01-09 09:23:01.151: Successfully launched child monitor in Session 1. PID: 36572
+2026-01-09 09:23:02.166: Bootstrap initiated. Session 0 instance exiting.

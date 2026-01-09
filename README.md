@@ -1,6 +1,10 @@
 # Windows 锁屏界面用户输入检测深度技术方案
 
-#### 注：测试环境为win11 专业工作站版 25h2 26200.7462 UAC为关闭状态
+#### 注：测试环境为win11 专业工作站版 25h2 26200.7462 UAC为关闭状态（由于我比较懒，所以没测试开启UAC的情况）
+测试结果相关日志（位于C:\Windows\Temp目录下）：
+*   [AuthUnlocker_V14.log](AuthUnlocker_V14.log)
+*   [AuthUnlocker_CHILD.log](AuthUnlocker_CHILD.log)
+*   [AuthUnlocker_Monitor.log](AuthUnlocker_Monitor.log)
 
 ## 1. 核心挑战与安全背景
 
