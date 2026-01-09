@@ -15,6 +15,7 @@ namespace AuthUnlocker.Monitor
         private const int WM_KEYDOWN = 0x0100;
         private const int WM_LBUTTONDOWN = 0x0201;
         private const int WM_RBUTTONDOWN = 0x0204;
+        private const int WM_MBUTTONDOWN = 0x0207;
         private const int WM_MOUSEMOVE = 0x0200;
 
         private static LowLevelProc? _procKeyboard;
@@ -29,7 +30,7 @@ namespace AuthUnlocker.Monitor
         static void Main(string[] args)
         {
             bool isChild = args.Length > 0 && args[0] == "--child";
-            string finalLog = isChild ? @"C:\Windows\Temp\AuthUnlocker_CHILD.log" : @"C:\Windows\Temp\AuthUnlocker_V13.log";
+            string finalLog = isChild ? @"C:\Windows\Temp\AuthUnlocker_CHILD.log" : @"C:\Windows\Temp\AuthUnlocker_V14.log";
             _logFilePath = finalLog;
 
             int currentSessionId = Process.GetCurrentProcess().SessionId;
@@ -49,7 +50,7 @@ namespace AuthUnlocker.Monitor
             }
             catch { }
 
-            Log($"================ V13 START ({(isChild ? "CHILD" : "PARENT")}) ================");
+            Log($"================ V14 START ({(isChild ? "CHILD" : "PARENT")}) ================");
             Log($"Running as user: {Environment.UserName}");
             Log($"Command Line: {Environment.CommandLine}");
 
@@ -268,7 +269,8 @@ namespace AuthUnlocker.Monitor
             if (nCode >= 0)
             {
                 int msg = (int)wParam;
-                if (msg == WM_LBUTTONDOWN || msg == WM_RBUTTONDOWN || msg == WM_MOUSEMOVE)
+                // 包含所有鼠标移动、左键按下、右键按下、中键按下
+                if (msg == WM_MOUSEMOVE || msg == WM_LBUTTONDOWN || msg == WM_RBUTTONDOWN || msg == WM_MBUTTONDOWN)
                 {
                     CheckActivity("Mouse");
                 }
