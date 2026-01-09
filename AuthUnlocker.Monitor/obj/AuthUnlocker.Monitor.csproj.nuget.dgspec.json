@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "D:\\Code\\TEST\\test\\AuthUnlocker.Monitor\\AuthUnlocker.Monitor.csproj": {}
+    "d:\\Code\\TEST\\test\\AuthUnlocker.Monitor\\AuthUnlocker.Monitor.csproj": {}
   },
   "projects": {
-    "D:\\Code\\TEST\\test\\AuthUnlocker.Monitor\\AuthUnlocker.Monitor.csproj": {
+    "d:\\Code\\TEST\\test\\AuthUnlocker.Monitor\\AuthUnlocker.Monitor.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\Code\\TEST\\test\\AuthUnlocker.Monitor\\AuthUnlocker.Monitor.csproj",
+        "projectUniqueName": "d:\\Code\\TEST\\test\\AuthUnlocker.Monitor\\AuthUnlocker.Monitor.csproj",
         "projectName": "AuthUnlocker.Monitor",
-        "projectPath": "D:\\Code\\TEST\\test\\AuthUnlocker.Monitor\\AuthUnlocker.Monitor.csproj",
+        "projectPath": "d:\\Code\\TEST\\test\\AuthUnlocker.Monitor\\AuthUnlocker.Monitor.csproj",
         "packagesPath": "C:\\Users\\space\\.nuget\\packages\\",
-        "outputPath": "D:\\Code\\TEST\\test\\AuthUnlocker.Monitor\\obj\\",
+        "outputPath": "d:\\Code\\TEST\\test\\AuthUnlocker.Monitor\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\space\\AppData\\Roaming\\NuGet\\NuGet.Config"

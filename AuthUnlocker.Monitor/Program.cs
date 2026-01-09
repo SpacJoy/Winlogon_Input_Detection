@@ -29,32 +29,50 @@ namespace AuthUnlocker.Monitor
         static void Main(string[] args)
         {
             // Emergency init log
-            try { File.WriteAllText(@"C:\Windows\Temp\AuthUnlocker_Monitor_Init.log", "Entry point hit at " + DateTime.Now.ToString()); } catch { }
+            try { File.WriteAllText(@"C:\Windows\Temp\AuthUnlocker_Monitor_Init.log", "Entry point hit at " + DateTime.Now.ToString() + " Args: " + string.Join(" ", args)); } catch { }
 
             Log("==========================================");
-            Log($"Monitor Started. PID: {Process.GetCurrentProcess().Id}, Session: {Process.GetCurrentProcess().SessionId}");
+            int currentSessionId = Process.GetCurrentProcess().SessionId;
+            Log($"Monitor Started. PID: {Process.GetCurrentProcess().Id}, Session: {currentSessionId}");
             Log($"Running as user: {Environment.UserName}");
-            
-            try 
-            {
-                // Get current desktop name for debugging
-                StringBuilder desktopName = new StringBuilder(256);
-                IntPtr hCurrentDesktop = NativeMethods.GetThreadDesktop(NativeMethods.GetCurrentThreadId());
-                NativeMethods.GetUserObjectInformation(hCurrentDesktop, NativeMethods.UOI_NAME, desktopName, 256, out _);
-                Log($"Current Thread Desktop: {desktopName}");
 
-                // Force switch to Winlogon desktop
-                IntPtr hDesktop = NativeMethods.OpenDesktop("Winlogon", 0, false, NativeMethods.DESKTOP_ALL_ACCESS);
-                if (hDesktop != IntPtr.Zero)
+            // 如果在 Session 0 运行且没有 --child 参数，则尝试迁移到活动会话
+            if (currentSessionId == 0 && (args.Length == 0 || args[0] != "--child"))
+            {
+                Log("Running in Session 0, attempting to bootstrap to active session...");
+                if (BootstrapToActiveSession())
                 {
-                    if (NativeMethods.SetThreadDesktop(hDesktop))
-                        Log("Successfully switched to Winlogon desktop.");
-                    else
-                        Log($"Failed to set thread desktop. Error: {Marshal.GetLastWin32Error()}");
+                    Log("Bootstrap initiated. Session 0 instance exiting.");
+                    return;
                 }
                 else
                 {
-                    Log($"Failed to open Winlogon desktop. Error: {Marshal.GetLastWin32Error()}");
+                    Log("Bootstrap failed. Continuing in Session 0 (likely won't work).");
+                }
+            }
+            
+            try 
+            {
+                // 确保我们尝试切换到 Winlogon 桌面
+                bool desktopSwitched = false;
+                string[] desktops = { "Winlogon", "Default" };
+                foreach (var dsktp in desktops)
+                {
+                    IntPtr hDesktop = NativeMethods.OpenDesktop(dsktp, 0, false, NativeMethods.DESKTOP_ALL_ACCESS);
+                    if (hDesktop != IntPtr.Zero)
+                    {
+                        if (NativeMethods.SetThreadDesktop(hDesktop))
+                        {
+                            Log($"Successfully switched to {dsktp} desktop.");
+                            desktopSwitched = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!desktopSwitched)
+                {
+                    Log("Failed to switch to any interactive desktop.");
                 }
 
                 _lastActivityTick = DateTime.Now.Ticks;
@@ -66,8 +84,9 @@ namespace AuthUnlocker.Monitor
                 using (Process curProcess = Process.GetCurrentProcess())
                 using (ProcessModule curModule = curProcess.MainModule!)
                 {
-                    _hookIDKeyboard = NativeMethods.SetWindowsHookEx(WH_KEYBOARD_LL, _procKeyboard, NativeMethods.GetModuleHandle(curModule.ModuleName), 0);
-                    _hookIDMouse = NativeMethods.SetWindowsHookEx(WH_MOUSE_LL, _procMouse, NativeMethods.GetModuleHandle(curModule.ModuleName), 0);
+                    IntPtr hMod = NativeMethods.GetModuleHandle(curModule.ModuleName);
+                    _hookIDKeyboard = NativeMethods.SetWindowsHookEx(WH_KEYBOARD_LL, _procKeyboard, hMod, 0);
+                    _hookIDMouse = NativeMethods.SetWindowsHookEx(WH_MOUSE_LL, _procMouse, hMod, 0);
                 }
 
                 if (_hookIDKeyboard == IntPtr.Zero || _hookIDMouse == IntPtr.Zero)
@@ -91,6 +110,88 @@ namespace AuthUnlocker.Monitor
                 if (_hookIDKeyboard != IntPtr.Zero) NativeMethods.UnhookWindowsHookEx(_hookIDKeyboard);
                 if (_hookIDMouse != IntPtr.Zero) NativeMethods.UnhookWindowsHookEx(_hookIDMouse);
                 Log("Monitor exiting.");
+            }
+        }
+
+        private static bool BootstrapToActiveSession()
+        {
+            try
+            {
+                int activeSessionId = (int)NativeMethods.WTSGetActiveConsoleSessionId();
+                if (activeSessionId == 0xFFFFFFFF || activeSessionId == 0)
+                {
+                    Log("No active console session found.");
+                    return false;
+                }
+
+                Log($"Active Console Session ID: {activeSessionId}. Preparing migration...");
+
+                IntPtr hToken = IntPtr.Zero;
+                if (!NativeMethods.OpenProcessToken(Process.GetCurrentProcess().Handle, NativeMethods.TOKEN_ALL_ACCESS, out hToken))
+                {
+                    Log($"Failed to open process token. Error: {Marshal.GetLastWin32Error()}");
+                    return false;
+                }
+
+                IntPtr hNewToken = IntPtr.Zero;
+                if (!NativeMethods.DuplicateTokenEx(hToken, NativeMethods.TOKEN_ALL_ACCESS, IntPtr.Zero, 
+                    NativeMethods.SecurityImpersonation, NativeMethods.TokenPrimary, out hNewToken))
+                {
+                    Log($"Failed to duplicate token. Error: {Marshal.GetLastWin32Error()}");
+                    NativeMethods.CloseHandle(hToken);
+                    return false;
+                }
+
+                // 设置 Token 的 SessionId
+                if (!NativeMethods.SetTokenInformation(hNewToken, NativeMethods.TokenSessionId, ref activeSessionId, sizeof(int)))
+                {
+                    Log($"Failed to set token session ID. Error: {Marshal.GetLastWin32Error()}");
+                    NativeMethods.CloseHandle(hToken);
+                    NativeMethods.CloseHandle(hNewToken);
+                    return false;
+                }
+
+                NativeMethods.STARTUPINFO si = new NativeMethods.STARTUPINFO();
+                si.cb = Marshal.SizeOf(si);
+                si.lpDesktop = @"WinSta0\Winlogon"; // 关键：直接指定桌面
+
+                NativeMethods.PROCESS_INFORMATION pi = new NativeMethods.PROCESS_INFORMATION();
+                string appPath = Process.GetCurrentProcess().MainModule.FileName;
+                string cmdLine = $"\"{appPath}\" --child";
+
+                bool result = NativeMethods.CreateProcessAsUser(
+                    hNewToken,
+                    null,
+                    cmdLine,
+                    IntPtr.Zero,
+                    IntPtr.Zero,
+                    false,
+                    NativeMethods.CREATE_NO_WINDOW,
+                    IntPtr.Zero,
+                    null,
+                    ref si,
+                    out pi
+                );
+
+                if (result)
+                {
+                    Log($"Successfully launched child monitor in Session {activeSessionId}. PID: {pi.dwProcessId}");
+                    NativeMethods.CloseHandle(pi.hProcess);
+                    NativeMethods.CloseHandle(pi.hThread);
+                }
+                else
+                {
+                    Log($"Failed to CreateProcessAsUser. Error: {Marshal.GetLastWin32Error()}");
+                }
+
+                NativeMethods.CloseHandle(hToken);
+                NativeMethods.CloseHandle(hNewToken);
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Log($"Bootstrap Error: {ex.Message}");
+                return false;
             }
         }
 
@@ -163,6 +264,44 @@ namespace AuthUnlocker.Monitor
         public const int UOI_NAME = 2;
         public static readonly IntPtr WTS_CURRENT_SERVER_HANDLE = IntPtr.Zero;
 
+        public const uint TOKEN_ALL_ACCESS = 0xF01FF;
+        public const int TokenSessionId = 12;
+        public const int TokenPrimary = 1;
+        public const int SecurityImpersonation = 2;
+        public const uint CREATE_NO_WINDOW = 0x08000000;
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct STARTUPINFO
+        {
+            public int cb;
+            public string lpReserved;
+            public string lpDesktop;
+            public string lpTitle;
+            public uint dwX;
+            public uint dwY;
+            public uint dwXSize;
+            public uint dwYSize;
+            public uint dwXCountChars;
+            public uint dwYCountChars;
+            public uint dwFillAttribute;
+            public uint dwFlags;
+            public short wShowWindow;
+            public short cbReserved2;
+            public IntPtr lpReserved2;
+            public IntPtr hStdInput;
+            public IntPtr hStdOutput;
+            public IntPtr hStdError;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct PROCESS_INFORMATION
+        {
+            public IntPtr hProcess;
+            public IntPtr hThread;
+            public uint dwProcessId;
+            public uint dwThreadId;
+        }
+
         [DllImport("user32.dll", SetLastError = true)]
         public static extern IntPtr OpenDesktop(string lpszDesktop, uint dwFlags, bool fInherit, uint dwDesiredAccess);
 
@@ -193,5 +332,23 @@ namespace AuthUnlocker.Monitor
 
         [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         public static extern IntPtr GetModuleHandle(string lpModuleName);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        public static extern uint WTSGetActiveConsoleSessionId();
+
+        [DllImport("advapi32.dll", SetLastError = true)]
+        public static extern bool OpenProcessToken(IntPtr ProcessHandle, uint DesiredAccess, out IntPtr TokenHandle);
+
+        [DllImport("advapi32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        public static extern bool DuplicateTokenEx(IntPtr hExistingToken, uint dwDesiredAccess, IntPtr lpTokenAttributes, int ImpersonationLevel, int TokenType, out IntPtr phNewToken);
+
+        [DllImport("advapi32.dll", SetLastError = true)]
+        public static extern bool SetTokenInformation(IntPtr TokenHandle, int TokenInformationClass, ref int TokenInformation, int TokenInformationLength);
+
+        [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        public static extern bool CreateProcessAsUser(IntPtr hToken, string? lpApplicationName, string lpCommandLine, IntPtr lpProcessAttributes, IntPtr lpThreadAttributes, bool bInheritHandles, uint dwCreationFlags, IntPtr lpEnvironment, string? lpCurrentDirectory, ref STARTUPINFO lpStartupInfo, out PROCESS_INFORMATION lpProcessInformation);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        public static extern bool CloseHandle(IntPtr hObject);
     }
 }

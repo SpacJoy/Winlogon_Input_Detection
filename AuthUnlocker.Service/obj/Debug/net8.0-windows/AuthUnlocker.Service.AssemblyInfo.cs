@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("AuthUnlocker.Service")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9ee38107a04b3d9f6818d9a6f4bc8e83b9f3ab1d")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+54c0abaa71128d1f3fb33bbce8b487260dfd04bf")]
 [assembly: System.Reflection.AssemblyProductAttribute("AuthUnlocker.Service")]
 [assembly: System.Reflection.AssemblyTitleAttribute("AuthUnlocker.Service")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

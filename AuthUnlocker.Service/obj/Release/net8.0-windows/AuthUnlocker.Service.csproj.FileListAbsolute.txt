@@ -1,0 +1,14 @@
+d:\Code\TEST\test\AuthUnlocker.Service\bin\Release\net8.0-windows\AuthUnlocker.Service.exe
+d:\Code\TEST\test\AuthUnlocker.Service\bin\Release\net8.0-windows\AuthUnlocker.Service.deps.json
+d:\Code\TEST\test\AuthUnlocker.Service\bin\Release\net8.0-windows\AuthUnlocker.Service.runtimeconfig.json
+d:\Code\TEST\test\AuthUnlocker.Service\bin\Release\net8.0-windows\AuthUnlocker.Service.dll
+d:\Code\TEST\test\AuthUnlocker.Service\bin\Release\net8.0-windows\AuthUnlocker.Service.pdb
+d:\Code\TEST\test\AuthUnlocker.Service\obj\Release\net8.0-windows\AuthUnlocker.Service.GeneratedMSBuildEditorConfig.editorconfig
+d:\Code\TEST\test\AuthUnlocker.Service\obj\Release\net8.0-windows\AuthUnlocker.Service.AssemblyInfoInputs.cache
+d:\Code\TEST\test\AuthUnlocker.Service\obj\Release\net8.0-windows\AuthUnlocker.Service.AssemblyInfo.cs
+d:\Code\TEST\test\AuthUnlocker.Service\obj\Release\net8.0-windows\AuthUnlocker.Service.csproj.CoreCompileInputs.cache
+d:\Code\TEST\test\AuthUnlocker.Service\obj\Release\net8.0-windows\AuthUnlocker.Service.dll
+d:\Code\TEST\test\AuthUnlocker.Service\obj\Release\net8.0-windows\refint\AuthUnlocker.Service.dll
+d:\Code\TEST\test\AuthUnlocker.Service\obj\Release\net8.0-windows\AuthUnlocker.Service.pdb
+d:\Code\TEST\test\AuthUnlocker.Service\obj\Release\net8.0-windows\AuthUnlocker.Service.genruntimeconfig.cache
+d:\Code\TEST\test\AuthUnlocker.Service\obj\Release\net8.0-windows\ref\AuthUnlocker.Service.dll

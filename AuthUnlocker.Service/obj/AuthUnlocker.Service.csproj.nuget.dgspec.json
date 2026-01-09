@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "D:\\Code\\TEST\\test\\AuthUnlocker.Service\\AuthUnlocker.Service.csproj": {}
+    "d:\\Code\\TEST\\test\\AuthUnlocker.Service\\AuthUnlocker.Service.csproj": {}
   },
   "projects": {
-    "D:\\Code\\TEST\\test\\AuthUnlocker.Service\\AuthUnlocker.Service.csproj": {
+    "d:\\Code\\TEST\\test\\AuthUnlocker.Service\\AuthUnlocker.Service.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\Code\\TEST\\test\\AuthUnlocker.Service\\AuthUnlocker.Service.csproj",
+        "projectUniqueName": "d:\\Code\\TEST\\test\\AuthUnlocker.Service\\AuthUnlocker.Service.csproj",
         "projectName": "AuthUnlocker.Service",
-        "projectPath": "D:\\Code\\TEST\\test\\AuthUnlocker.Service\\AuthUnlocker.Service.csproj",
+        "projectPath": "d:\\Code\\TEST\\test\\AuthUnlocker.Service\\AuthUnlocker.Service.csproj",
         "packagesPath": "C:\\Users\\space\\.nuget\\packages\\",
-        "outputPath": "D:\\Code\\TEST\\test\\AuthUnlocker.Service\\obj\\",
+        "outputPath": "d:\\Code\\TEST\\test\\AuthUnlocker.Service\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\space\\AppData\\Roaming\\NuGet\\NuGet.Config"

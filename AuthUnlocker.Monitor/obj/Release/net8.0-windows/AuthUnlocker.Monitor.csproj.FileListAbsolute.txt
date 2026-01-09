@@ -1,0 +1,14 @@
+d:\Code\TEST\test\AuthUnlocker.Monitor\bin\Release\net8.0-windows\AuthUnlocker.Monitor.exe
+d:\Code\TEST\test\AuthUnlocker.Monitor\bin\Release\net8.0-windows\AuthUnlocker.Monitor.deps.json
+d:\Code\TEST\test\AuthUnlocker.Monitor\bin\Release\net8.0-windows\AuthUnlocker.Monitor.runtimeconfig.json
+d:\Code\TEST\test\AuthUnlocker.Monitor\bin\Release\net8.0-windows\AuthUnlocker.Monitor.dll
+d:\Code\TEST\test\AuthUnlocker.Monitor\bin\Release\net8.0-windows\AuthUnlocker.Monitor.pdb
+d:\Code\TEST\test\AuthUnlocker.Monitor\obj\Release\net8.0-windows\AuthUnlocker.Monitor.GeneratedMSBuildEditorConfig.editorconfig
+d:\Code\TEST\test\AuthUnlocker.Monitor\obj\Release\net8.0-windows\AuthUnlocker.Monitor.AssemblyInfoInputs.cache
+d:\Code\TEST\test\AuthUnlocker.Monitor\obj\Release\net8.0-windows\AuthUnlocker.Monitor.AssemblyInfo.cs
+d:\Code\TEST\test\AuthUnlocker.Monitor\obj\Release\net8.0-windows\AuthUnlocker.Monitor.csproj.CoreCompileInputs.cache
+d:\Code\TEST\test\AuthUnlocker.Monitor\obj\Release\net8.0-windows\AuthUnlocker.Monitor.dll
+d:\Code\TEST\test\AuthUnlocker.Monitor\obj\Release\net8.0-windows\refint\AuthUnlocker.Monitor.dll
+d:\Code\TEST\test\AuthUnlocker.Monitor\obj\Release\net8.0-windows\AuthUnlocker.Monitor.pdb
+d:\Code\TEST\test\AuthUnlocker.Monitor\obj\Release\net8.0-windows\AuthUnlocker.Monitor.genruntimeconfig.cache
+d:\Code\TEST\test\AuthUnlocker.Monitor\obj\Release\net8.0-windows\ref\AuthUnlocker.Monitor.dll
