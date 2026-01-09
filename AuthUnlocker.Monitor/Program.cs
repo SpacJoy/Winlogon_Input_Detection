@@ -14,17 +14,23 @@ namespace AuthUnlocker.Monitor
         private static LowLevelMouseProc? _procMouse;
         private static long _lastActivityTick = 0;
         private const long IdleThresholdTicks = 200 * 10000; // 200ms in ticks
-        private static string _logFilePath = @"C:\AuthUnlocker_Monitor.log";
+        private static string _logFilePath = @"C:\Windows\Temp\AuthUnlocker_Monitor.log";
 
         static void Main(string[] args)
         {
-            // Initial emergency log to verify execution
-            try { File.WriteAllText(@"C:\AuthUnlocker_Monitor_Init.log", "Entry point hit at " + DateTime.Now.ToString()); } catch { }
+            // 尝试在多个地方写初始化日志，确保至少有一个能成功
+            string[] testPaths = { @"C:\Windows\Temp\AuthUnlocker_Monitor_Init.log", @"C:\AuthUnlocker_Monitor_Init.log", "AuthUnlocker_Monitor_Init.log" };
+            foreach (var path in testPaths)
+            {
+                try { File.WriteAllText(path, "Entry point hit at " + DateTime.Now.ToString()); break; } catch { }
+            }
 
             Log("==========================================");
-            Log($"Monitor process started. PID: {Process.GetCurrentProcess().Id}");
+            Log($"Monitor Started. PID: {Process.GetCurrentProcess().Id}, Session: {Process.GetCurrentProcess().SessionId}");
             Log($"Running as user: {Environment.UserName}");
             Log($"Interactive: {Environment.UserInteractive}");
+            Log($"Working Directory: {Environment.CurrentDirectory}");
+            Log($"Command Line: {Environment.CommandLine}");
             
             try 
             {

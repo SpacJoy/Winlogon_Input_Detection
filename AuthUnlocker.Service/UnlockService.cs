@@ -212,12 +212,16 @@ namespace AuthUnlocker.Service
                     return;
                 }
 
-                Log($"Token duplicated. Launching process: {appPath}");
-
                 string? workingDir = Path.GetDirectoryName(appPath);
 
-                if (!NativeMethods.CreateProcessAsUser(hUserTokenDup, null, appPath, IntPtr.Zero, IntPtr.Zero, false, 
-                    NativeMethods.NORMAL_PRIORITY_CLASS, 
+                // 使用 cmd.exe 包装启动，以便捕获可能的运行时错误
+                string logFile = @"C:\Windows\Temp\Monitor_Launch_Error.log";
+                string commandLine = $"cmd.exe /c \"\"{appPath}\" > \"{logFile}\" 2>&1\"";
+
+                Log($"Token duplicated. Launching via cmd: {commandLine}");
+
+                if (!NativeMethods.CreateProcessAsUser(hUserTokenDup, null, commandLine, IntPtr.Zero, IntPtr.Zero, false, 
+                    NativeMethods.NORMAL_PRIORITY_CLASS | NativeMethods.CREATE_NO_WINDOW, 
                     IntPtr.Zero, workingDir, ref si, out pi))
                 {
                     Log($"CreateProcessAsUser failed. Error: {Marshal.GetLastWin32Error()}");
@@ -365,6 +369,7 @@ namespace AuthUnlocker.Service
         public const int MAXIMUM_ALLOWED = 0x2000000;
         public const int NORMAL_PRIORITY_CLASS = 0x00000020;
         public const int CREATE_NEW_CONSOLE = 0x00000010;
+        public const int CREATE_NO_WINDOW = 0x08000000;
         public const string SE_TCB_NAME = "SeTcbPrivilege";
         public const int SE_PRIVILEGE_ENABLED = 0x00000002;
 
