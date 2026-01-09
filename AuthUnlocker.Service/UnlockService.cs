@@ -170,10 +170,7 @@ namespace AuthUnlocker.Service
 
         private void LaunchProcessOnWinlogon(string appPath, int sessionId)
         {
-            IntPtr hToken = IntPtr.Zero;
             IntPtr hUserTokenDup = IntPtr.Zero;
-            IntPtr hProcess = IntPtr.Zero;
-
             NativeMethods.STARTUPINFO si = new NativeMethods.STARTUPINFO();
             si.cb = Marshal.SizeOf(si);
             si.lpDesktop = @"WinSta0\Winlogon";
@@ -182,45 +179,46 @@ namespace AuthUnlocker.Service
 
             try 
             {
-                var winlogon = GetWinlogonProcess(sessionId);
-                if (winlogon == null)
+                // 1. Try WTSQueryUserToken first (Official recommended way)
+                if (!NativeMethods.WTSQueryUserToken(sessionId, out IntPtr hToken))
                 {
-                    Log($"Could not find winlogon process for session {sessionId}. Is the session active?");
-                    return;
+                    Log($"WTSQueryUserToken failed for session {sessionId}. Error: {Marshal.GetLastWin32Error()}");
+                    
+                    // 2. Fallback to winlogon token duplication
+                    var winlogon = GetWinlogonProcess(sessionId);
+                    if (winlogon == null)
+                    {
+                        Log($"Could not find winlogon process for session {sessionId}.");
+                        return;
+                    }
+
+                    IntPtr hProcess = NativeMethods.OpenProcess(NativeMethods.PROCESS_ALL_ACCESS, false, winlogon.Id);
+                    if (hProcess == IntPtr.Zero || !NativeMethods.OpenProcessToken(hProcess, NativeMethods.TOKEN_DUPLICATE | NativeMethods.TOKEN_ASSIGN_PRIMARY | NativeMethods.TOKEN_QUERY, out hToken))
+                    {
+                        Log($"Fallback OpenProcessToken failed. Error: {Marshal.GetLastWin32Error()}");
+                        if (hProcess != IntPtr.Zero) NativeMethods.CloseHandle(hProcess);
+                        return;
+                    }
+                    NativeMethods.CloseHandle(hProcess);
                 }
 
-                Log($"Found winlogon process: PID {winlogon.Id}");
-
-                hProcess = NativeMethods.OpenProcess(NativeMethods.PROCESS_ALL_ACCESS, false, winlogon.Id);
-                if (hProcess == IntPtr.Zero)
-                {
-                    Log($"OpenProcess failed. Error: {Marshal.GetLastWin32Error()}");
-                    return;
-                }
-                
-                if (!NativeMethods.OpenProcessToken(hProcess, NativeMethods.TOKEN_DUPLICATE | NativeMethods.TOKEN_ASSIGN_PRIMARY | NativeMethods.TOKEN_QUERY, out hToken))
-                {
-                    Log($"OpenProcessToken failed. Error: {Marshal.GetLastWin32Error()}");
-                    return;
-                }
-
+                // Duplicate token to primary token
                 if (!NativeMethods.DuplicateTokenEx(hToken, NativeMethods.MAXIMUM_ALLOWED, IntPtr.Zero, 
                     NativeMethods.SECURITY_IMPERSONATION_LEVEL.SecurityIdentification, 
                     NativeMethods.TOKEN_TYPE.TokenPrimary, out hUserTokenDup))
                 {
                     Log($"DuplicateTokenEx failed. Error: {Marshal.GetLastWin32Error()}");
+                    NativeMethods.CloseHandle(hToken);
                     return;
                 }
+                NativeMethods.CloseHandle(hToken);
 
                 string? workingDir = Path.GetDirectoryName(appPath);
 
-                // 使用 cmd.exe 包装启动，以便捕获可能的运行时错误
-                string logFile = @"C:\Windows\Temp\Monitor_Launch_Error.log";
-                string commandLine = $"cmd.exe /c \"\"{appPath}\" > \"{logFile}\" 2>&1\"";
+                Log($"Token ready. Launching Monitor: {appPath}");
 
-                Log($"Token duplicated. Launching via cmd: {commandLine}");
-
-                if (!NativeMethods.CreateProcessAsUser(hUserTokenDup, null, commandLine, IntPtr.Zero, IntPtr.Zero, false, 
+                // Launch directly, no cmd wrapper to avoid quoting/environment issues
+                if (!NativeMethods.CreateProcessAsUser(hUserTokenDup, appPath, null, IntPtr.Zero, IntPtr.Zero, false, 
                     NativeMethods.NORMAL_PRIORITY_CLASS | NativeMethods.CREATE_NO_WINDOW, 
                     IntPtr.Zero, workingDir, ref si, out pi))
                 {
@@ -240,9 +238,7 @@ namespace AuthUnlocker.Service
             }
             finally
             {
-                if (hToken != IntPtr.Zero) NativeMethods.CloseHandle(hToken);
                 if (hUserTokenDup != IntPtr.Zero) NativeMethods.CloseHandle(hUserTokenDup);
-                if (hProcess != IntPtr.Zero) NativeMethods.CloseHandle(hProcess);
             }
         }
 
