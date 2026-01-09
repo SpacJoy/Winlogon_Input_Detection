@@ -12,10 +12,13 @@ namespace AuthUnlocker.Service
         private const string MonitorExeName = "AuthUnlocker.Monitor.exe";
         private static string _logFilePath = @"C:\Windows\Temp\AuthUnlocker_Service.log";
 
+        private const string TaskName = "AuthUnlocker_MonitorTask";
+
         public void OnStart(string[] args)
         {
             Log("Service Started (Native).");
             EnablePrivileges();
+            RegisterScheduledTask();
         }
 
         public void OnStop()
@@ -28,7 +31,6 @@ namespace AuthUnlocker.Service
         {
             Log($"Session Change: {reason} SessionId: {sessionId}");
 
-            // WTS_SESSION_LOCK = 0x7, WTS_SESSION_UNLOCK = 0x8
             const int WTS_SESSION_LOCK = 0x7;
             const int WTS_SESSION_UNLOCK = 0x8;
             const int WTS_SESSION_LOGON = 0x5;
@@ -45,18 +47,38 @@ namespace AuthUnlocker.Service
             }
         }
 
+        private void RegisterScheduledTask()
+        {
+            try
+            {
+                string monitorPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, MonitorExeName);
+                if (!File.Exists(monitorPath)) 
+                {
+                    Log($"Monitor not found for task registration: {monitorPath}");
+                    return;
+                }
+
+                // 使用 schtasks 创建任务
+                // /ru SYSTEM: 以 SYSTEM 账户运行
+                // /rl HIGHEST: 最高权限
+                // /it: 交互模式 (虽然对 SYSTEM 有限制，但在某些环境下有帮助)
+                string createCmd = $"schtasks /create /tn \"{TaskName}\" /tr \"\\\"{monitorPath}\\\"\" /sc ONCE /st 00:00 /ru SYSTEM /rl HIGHEST /f";
+                RunCommand(createCmd);
+                Log("Scheduled task registration command executed.");
+            }
+            catch (Exception ex)
+            {
+                Log($"Error registering task: {ex.Message}");
+            }
+        }
+
         private void EnablePrivileges()
         {
-            // Try to enable TCB privilege which is helpful for creating processes as user
             try {
-                bool success = EnablePrivilege("SeTcbPrivilege");
-                Log($"Enable SeTcbPrivilege: {success}");
-                success = EnablePrivilege("SeDebugPrivilege");
-                Log($"Enable SeDebugPrivilege: {success}");
-                success = EnablePrivilege("SeAssignPrimaryTokenPrivilege");
-                Log($"Enable SeAssignPrimaryTokenPrivilege: {success}");
-                success = EnablePrivilege("SeIncreaseQuotaPrivilege");
-                Log($"Enable SeIncreaseQuotaPrivilege: {success}");
+                EnablePrivilege("SeTcbPrivilege");
+                EnablePrivilege("SeDebugPrivilege");
+                EnablePrivilege("SeAssignPrimaryTokenPrivilege");
+                EnablePrivilege("SeIncreaseQuotaPrivilege");
             } catch (Exception ex) {
                 Log($"Error enabling privileges: {ex.Message}");
             }
@@ -66,17 +88,13 @@ namespace AuthUnlocker.Service
         {
             IntPtr hToken;
             if (!NativeMethods.OpenProcessToken(NativeMethods.GetCurrentProcess(), NativeMethods.TOKEN_ADJUST_PRIVILEGES | NativeMethods.TOKEN_QUERY, out hToken))
-            {
                 return false;
-            }
 
             try
             {
                 NativeMethods.LUID luid;
                 if (!NativeMethods.LookupPrivilegeValue(null, privilegeName, out luid))
-                {
                     return false;
-                }
 
                 NativeMethods.TOKEN_PRIVILEGES tp = new NativeMethods.TOKEN_PRIVILEGES();
                 tp.PrivilegeCount = 1;
@@ -84,12 +102,7 @@ namespace AuthUnlocker.Service
                 tp.Privileges[0].Luid = luid;
                 tp.Privileges[0].Attributes = NativeMethods.SE_PRIVILEGE_ENABLED;
 
-                if (!NativeMethods.AdjustTokenPrivileges(hToken, false, ref tp, 0, IntPtr.Zero, IntPtr.Zero))
-                {
-                    return false;
-                }
-                
-                return Marshal.GetLastWin32Error() == NativeMethods.ERROR_SUCCESS;
+                return NativeMethods.AdjustTokenPrivileges(hToken, false, ref tp, 0, IntPtr.Zero, IntPtr.Zero);
             }
             finally
             {
@@ -97,45 +110,33 @@ namespace AuthUnlocker.Service
             }
         }
 
+        private void RunCommand(string command)
+        {
+            try
+            {
+                ProcessStartInfo psi = new ProcessStartInfo("cmd.exe", "/c " + command)
+                {
+                    CreateNoWindow = true,
+                    UseShellExecute = false,
+                    RedirectStandardError = true,
+                    RedirectStandardOutput = true
+                };
+                using var p = Process.Start(psi);
+                p?.WaitForExit();
+            }
+            catch { }
+        }
+
         private void StartMonitor(int sessionId)
         {
             try
             {
-                if (_monitorProcess != null && !_monitorProcess.HasExited)
-                {
-                    Log("Monitor already running.");
-                    return;
-                }
-
-                // Check standard deployment path first (same dir as service)
-                string monitorPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, MonitorExeName);
-                
-                // Fallback for dev environment
-                if (!File.Exists(monitorPath))
-                {
-                    string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-                    // Try to navigate up to find the other project output
-                    // D:\Code\TEST\test\AuthUnlocker.Service\bin\Debug\net8.0-windows\
-                    // -> D:\Code\TEST\test\AuthUnlocker.Monitor\bin\Debug\net8.0-windows\AuthUnlocker.Monitor.exe
-                    string devPath = Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "..", "AuthUnlocker.Monitor", "bin", "Debug", "net8.0-windows", MonitorExeName));
-                    if (File.Exists(devPath))
-                    {
-                        monitorPath = devPath;
-                    }
-                }
-
-                if (!File.Exists(monitorPath))
-                {
-                    Log($"CRITICAL: Monitor executable not found at {monitorPath}");
-                    return;
-                }
-
-                Log($"Preparing to launch Monitor at {monitorPath} for Session {sessionId}");
-                LaunchProcessOnWinlogon(monitorPath, sessionId);
+                Log($"Triggering Monitor via Task Scheduler for Session {sessionId}");
+                RunCommand($"schtasks /run /tn \"{TaskName}\"");
             }
             catch (Exception ex)
             {
-                Log($"Error starting monitor: {ex.ToString()}");
+                Log($"Error running task: {ex.ToString()}");
             }
         }
 
@@ -143,19 +144,18 @@ namespace AuthUnlocker.Service
         {
             try
             {
-                if (_monitorProcess != null)
+                Log("Stopping Monitor via Task Scheduler...");
+                RunCommand($"schtasks /end /tn \"{TaskName}\"");
+                
+                // 强制清理可能残留的进程
+                foreach (var p in Process.GetProcessesByName("AuthUnlocker.Monitor"))
                 {
-                    Log("Stopping Monitor...");
-                    if (!_monitorProcess.HasExited)
-                    {
-                        _monitorProcess.Kill();
-                    }
-                    _monitorProcess = null;
+                    try { p.Kill(); } catch { }
                 }
             }
             catch (Exception ex)
             {
-                Log($"Error stopping monitor: {ex.Message}");
+                Log($"Error stopping task: {ex.Message}");
             }
         }
 

@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("AuthUnlocker.Monitor")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+07ad75345caef49279e2bfc2262f0af299a3faa8")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9ee38107a04b3d9f6818d9a6f4bc8e83b9f3ab1d")]
 [assembly: System.Reflection.AssemblyProductAttribute("AuthUnlocker.Monitor")]
 [assembly: System.Reflection.AssemblyTitleAttribute("AuthUnlocker.Monitor")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
